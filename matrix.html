@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MATRIKS NSP 2025 - Pencatatan Meteran Air Tanah</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .tab.active {
+            background: #2e7d32;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #2e7d32;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #2e7d32;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1b5e20;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .btn-danger {
+            background: #d32f2f;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c62828;
+        }
+        
+        .btn-secondary {
+            background: #757575;
+            color: white;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .alert-success {
+            background: #c8e6c9;
+            color: #1b5e20;
+            border: 1px solid #81c784;
+        }
+        
+        .alert-error {
+            background: #ffcdd2;
+            color: #b71c1c;
+            border: 1px solid #e57373;
+        }
+        
+        .alert-info {
+            background: #bbdefb;
+            color: #0d47a1;
+            border: 1px solid #64b5f6;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+            font-size: 13px;
+        }
+        
+        th {
+            background: #2e7d32;
+            color: white;
+            font-weight: 600;
+        }
+        
+        tr:nth-child(even) {
+            background: #f5f5f5;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .info-box h3 {
+            color: #1565c0;
+            margin-bottom: 10px;
+        }
+        
+        .info-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1565c0;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2e7d32;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .record-item {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #2e7d32;
+        }
+        
+        .record-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .record-title {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .record-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        #loginScreen {
+            max-width: 400px;
+            margin: 100px auto;
+        }
+        
+        .matrix-card {
+            margin-bottom: 30px;
+            border: 2px solid #2e7d32;
+        }
+        
+        .matrix-header {
+            background: #2e7d32;
+            color: white;
+            padding: 15px;
+        }
+        
+        .matrix-table {
+            font-size: 12px;
+        }
+        
+        .matrix-table th {
+            background: #e0e0e0;
+            color: #333;
+            text-align: center;
+        }
+        
+        .matrix-table td {
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                background: white;
+            }
+            .header, .tabs, .btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loginScreen">
+        <div class="card">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="color: #2e7d32;">🌊 MATRIKS NSP 2025</h1>
+                <p style="color: #666;">Pencatatan Volume Air Tanah</p>
+                <p style="color: #999; font-size: 12px;">Kabupaten Bantul</p>
+            </div>
+            
+            <div id="loginAlert"></div>
+            
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="loginUsername" placeholder="Masukkan username">
+            </div>
+            
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPassword" placeholder="Masukkan password">
+            </div>
+            
+            <button class="btn btn-primary" style="width: 100%;" onclick="handleLogin()">Masuk</button>
+            
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666;">
+                <p><strong>Demo Account:</strong></p>
+                <p>Admin: admin / admin123</p>
+                <p>Petugas: petugas / petugas123</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainApp" style="display: none;">
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>🌊 MATRIKS NSP 2025</h1>
+                    <p>Pencatatan Volume Air Tanah - Kabupaten Bantul</p>
+                </div>
+                <div style="text-align: right;">
+                    <p id="currentUserName" style="font-weight: bold;"></p>
+                    <button class="btn btn-secondary btn-small" onclick="handleLogout()">Keluar</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('pengguna')">👥 Daftar Pengguna</button>
+                <button class="tab" onclick="showTab('input')">➕ Input Pencatatan</button>
+                <button class="tab" onclick="showTab('matrix')">📊 Matriks Tahunan</button>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <!-- Tab Pengguna -->
+            <div id="tab-pengguna" class="tab-content active">
+                <div class="grid">
+                    <div class="card">
+                        <h2 style="margin-bottom: 15px;">Tambah Pengguna Baru</h2>
+                        <div class="form-group">
+                            <label>Nama Pengguna *</label>
+                            <input type="text" id="customerName" placeholder="Nama lengkap">
+                        </div>
+                        <div class="form-group">
+                            <label>Lokasi *</label>
+                            <input type="text" id="customerLocation" placeholder="Alamat lengkap">
+                        </div>
+                        <div class="form-group">
+                            <label>Jenis Usaha</label>
+                            <input type="text" id="customerBusiness" placeholder="Hotel, Industri, dll">
+                        </div>
+                        <button class="btn btn-primary" onclick="addCustomer()">Simpan Data</button>
+                    </div>
+
+                    <div class="card">
+                        <h2 style="margin-bottom: 15px;">Daftar Pengguna (<span id="customerCount">0</span>)</h2>
+                        <div id="customerList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Input -->
+            <div id="tab-input" class="tab-content">
+                <div class="card" style="max-width: 800px; margin: 0 auto;">
+                    <h2 style="margin-bottom: 15px;">Input Pencatatan Meter Air</h2>
+                    
+                    <div class="form-group">
+                        <label>Pilih Pengguna *</label>
+                        <select id="inputCustomer" onchange="updateMeterInfo()">
+                            <option value="">-- Pilih Pengguna --</option>
+                        </select>
+                    </div>
+
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Bulan *</label>
+                            <select id="inputMonth" onchange="updateMeterInfo()">
+                                <option value="">-- Pilih Bulan --</option>
+                                <option>JANUARI</option>
+                                <option>FEBRUARI</option>
+                                <option>MARET</option>
+                                <option>APRIL</option>
+                                <option>MEI</option>
+                                <option>JUNI</option>
+                                <option>JULI</option>
+                                <option>AGUSTUS</option>
+                                <option>SEPTEMBER</option>
+                                <option>OKTOBER</option>
+                                <option>NOVEMBER</option>
+                                <option>DESEMBER</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tanggal *</label>
+                            <input type="number" id="inputDate" min="1" max="31" placeholder="1-31">
+                        </div>
+                    </div>
+
+                    <div id="meterInfo"></div>
+
+                    <div class="form-group">
+                        <label>Meteran Akhir (m³) *</label>
+                        <input type="number" id="inputMeterReading" oninput="calculateVolume()" placeholder="Masukkan angka meteran">
+                    </div>
+
+                    <button class="btn btn-primary" style="width: 100%;" onclick="addRecord()">💾 Simpan Pencatatan</button>
+
+                    <div id="recentRecords" style="margin-top: 30px;"></div>
+                </div>
+            </div>
+
+            <!-- Tab Matrix -->
+            <div id="tab-matrix" class="tab-content">
+                <div class="card">
+                    <h2 style="margin-bottom: 20px;">Matriks Pencatatan Volume Air Tanah Tahun 2025</h2>
+                    <div id="matrixContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // KONFIGURASI - GANTI DENGAN URL GOOGLE SHEETS ANDA
+        const SPREADSHEET_URL = 'YOUR_GOOGLE_SHEETS_WEB_APP_URL_HERE';
+        
+        // State Management
+        let currentUser = null;
+        let customers = [];
+        let records = [];
+        let users = [
+            { username: 'admin', password: 'admin123', name: 'NOOR SOTYO PRABOWO', role: 'kepala_seksi' },
+            { username: 'petugas', password: 'petugas123', name: 'HARTI WIDIYANINGSIH', role: 'petugas' }
+        ];
+
+        const months = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 
+                        'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+
+        // Login
+        function handleLogin() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                document.getElementById('currentUserName').textContent = user.name;
+                loadData();
+            } else {
+                showAlert('Username atau password salah', 'error', 'loginAlert');
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            document.getElementById('loginScreen').style.display = 'block';
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+        }
+
+        // Load Data from Google Sheets
+        async function loadData() {
+            try {
+                showLoading(true);
+                
+                // Load dari Google Sheets
+                const response = await fetch(SPREADSHEET_URL + '?action=getData');
+                const data = await response.json();
+                
+                customers = data.customers || [];
+                records = data.records || [];
+                
+                renderCustomerList();
+                renderCustomerDropdown();
+                renderRecentRecords();
+                renderMatrix();
+                
+                showLoading(false);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                // Fallback ke localStorage jika Google Sheets error
+                loadFromLocalStorage();
+                showLoading(false);
+            }
+        }
+
+        // Save Data to Google Sheets
+        async function saveData() {
+            try {
+                await fetch(SPREADSHEET_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'saveData',
+                        customers: customers,
+                        records: records
+                    })
+                });
+                
+                // Backup ke localStorage
+                localStorage.setItem('customers', JSON.stringify(customers));
+                localStorage.setItem('records', JSON.stringify(records));
