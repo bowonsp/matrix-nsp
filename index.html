@@ -1,306 +1,459 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MATRIKS NSP 2025 - Meteran Air Tanah Bantul</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: Arial, sans-serif; 
-            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header { 
-            background: #2e7d32; 
-            color: white; 
-            padding: 20px; 
-            border-radius: 10px; 
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .card { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 10px; 
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .btn { 
-            padding: 12px 24px; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        .btn-primary { background: #2e7d32; color: white; }
-        .btn-primary:hover { background: #1b5e20; transform: translateY(-2px); }
-        .btn-danger { background: #d32f2f; color: white; }
-        .btn-danger:hover { background: #c62828; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
-        input, select { 
-            width: 100%; 
-            padding: 10px; 
-            border: 2px solid #e0e0e0; 
-            border-radius: 6px;
-            font-size: 14px;
-        }
-        input:focus, select:focus { outline: none; border-color: #2e7d32; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 10px; border: 1px solid #ddd; font-size: 13px; }
-        th { background: #2e7d32; color: white; text-align: center; }
-        tr:nth-child(even) { background: #f5f5f5; }
-        .hidden { display: none !important; }
-        .alert { padding: 12px; border-radius: 6px; margin-bottom: 15px; }
-        .alert-success { background: #c8e6c9; color: #1b5e20; }
-        .alert-error { background: #ffcdd2; color: #b71c1c; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .info-box { 
-            background: #e3f2fd; 
-            padding: 15px; 
-            border-radius: 8px; 
-            border: 2px solid #2196f3;
-            margin: 15px 0;
-        }
-        @media (max-width: 768px) {
-            .grid { grid-template-columns: 1fr; }
-        }
-    </style>
-</head>
-<body>
-    <div id="app"></div>
+import React, { useState, useEffect } from 'react';
+import { Droplets, LogOut, Plus, FileText, Building2, Trash2, Edit2, X } from 'lucide-react';
 
-    <script>
-        let currentUser = null;
-        let customers = JSON.parse(localStorage.getItem('customers_bantul') || '[]');
-        let records = JSON.parse(localStorage.getItem('records_bantul') || '[]');
-        
-        const users = [
-            { username: 'admin', password: 'admin123', name: 'NOOR SOTYO PRABOWO', role: 'kepala' },
-            { username: 'petugas', password: 'petugas123', name: 'HARTI WIDIYANINGSIH', role: 'petugas' }
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [tab, setTab] = useState('input');
+  const [customers, setCustomers] = useState([]);
+  const [records, setRecords] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loginForm, setLoginForm] = useState({ u: '', p: '' });
+  const [custForm, setCustForm] = useState({ name: '', location: '', business: '' });
+  const [meterForm, setMeterForm] = useState({ cid: '', month: '', date: '', reading: '' });
+  const [editRec, setEditRec] = useState(null);
+  const [del, setDel] = useState({ show: false, type: '', id: null, name: '' });
+  const [msg, setMsg] = useState({ txt: '', type: '' });
+
+  const months = ['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];
+
+  useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (user) saveData(); }, [customers, records, users, user]);
+
+  async function loadData() {
+    try {
+      const u = await window.storage.get('users_v2');
+      const c = await window.storage.get('customers_v2');
+      const r = await window.storage.get('records_v2');
+      
+      if (u) {
+        setUsers(JSON.parse(u.value));
+      } else {
+        const def = [
+          { id: 1, u: 'admin', p: 'admin123', n: 'NOOR SOTYO PRABOWO', r: 'kepala' },
+          { id: 2, u: 'petugas', p: 'petugas123', n: 'HARTI WIDIYANINGSIH', r: 'petugas' }
         ];
-        
-        const months = ['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];
+        setUsers(def);
+        await window.storage.set('users_v2', JSON.stringify(def));
+      }
+      if (c) setCustomers(JSON.parse(c.value));
+      if (r) setRecords(JSON.parse(r.value));
+    } catch (e) {
+      setUsers([
+        { id: 1, u: 'admin', p: 'admin123', n: 'NOOR SOTYO PRABOWO', r: 'kepala' },
+        { id: 2, u: 'petugas', p: 'petugas123', n: 'HARTI WIDIYANINGSIH', r: 'petugas' }
+      ]);
+    }
+  }
 
-        function saveData() {
-            localStorage.setItem('customers_bantul', JSON.stringify(customers));
-            localStorage.setItem('records_bantul', JSON.stringify(records));
-        }
+  async function saveData() {
+    try {
+      await window.storage.set('users_v2', JSON.stringify(users));
+      await window.storage.set('customers_v2', JSON.stringify(customers));
+      await window.storage.set('records_v2', JSON.stringify(records));
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
-        function showAlert(msg, type) {
-            const container = document.querySelector('.container');
-            if (!container) return;
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = msg;
-            container.insertBefore(alert, container.firstChild);
-            setTimeout(() => alert.remove(), 3000);
-        }
+  function showMsg(txt, type) {
+    setMsg({ txt, type });
+    setTimeout(() => setMsg({ txt: '', type: '' }), 3000);
+  }
 
-        function render() {
-            const app = document.getElementById('app');
-            
-            if (!currentUser) {
-                app.innerHTML = `
-                    <div class="container" style="max-width: 400px; margin-top: 100px;">
-                        <div class="card">
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                <h1 style="color: #2e7d32; margin-bottom: 10px;">🌊 MATRIKS NSP 2025</h1>
-                                <p style="color: #666;">Pencatatan Volume Air Tanah</p>
-                                <p style="color: #999; font-size: 12px;">Kabupaten Bantul</p>
-                            </div>
-                            <div class="form-group">
-                                <label>Username</label>
-                                <input type="text" id="username" placeholder="admin atau petugas">
-                            </div>
-                            <div class="form-group">
-                                <label>Password</label>
-                                <input type="password" id="password" placeholder="Masukkan password">
-                            </div>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="login()">Masuk</button>
-                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 12px; color: #666; text-align: center;">
-                                <p><strong>Demo Account:</strong></p>
-                                <p>Admin: admin / admin123</p>
-                                <p>Petugas: petugas / petugas123</p>
-                            </div>
-                        </div>
+  function login() {
+    const found = users.find(x => x.u === loginForm.u && x.p === loginForm.p);
+    if (found) {
+      setUser(found);
+      setLoginForm({ u: '', p: '' });
+    } else {
+      showMsg('Username atau password salah', 'error');
+    }
+  }
+
+  function addCust() {
+    if (!custForm.name || !custForm.location) {
+      showMsg('Nama dan lokasi wajib diisi', 'error');
+      return;
+    }
+    setCustomers([...customers, { id: Date.now(), ...custForm }]);
+    setCustForm({ name: '', location: '', business: '' });
+    showMsg('Pengguna berhasil ditambahkan', 'success');
+  }
+
+  function delItem() {
+    const { type, id } = del;
+    if (type === 'customer') {
+      setCustomers(customers.filter(c => c.id !== id));
+      setRecords(records.filter(r => r.cid !== id));
+      showMsg('Pengguna berhasil dihapus', 'success');
+    } else if (type === 'record') {
+      setRecords(records.filter(r => r.id !== id));
+      showMsg('Pencatatan berhasil dihapus', 'success');
+    }
+    setDel({ show: false, type: '', id: null, name: '' });
+  }
+
+  function getPrev() {
+    if (!meterForm.cid || !meterForm.month) return null;
+    const idx = months.indexOf(meterForm.month);
+    const recs = records.filter(r => r.cid === parseInt(meterForm.cid));
+    for (let i = idx - 1; i >= 0; i--) {
+      const prev = recs.filter(r => r.month === months[i]);
+      if (prev.length > 0) return prev.sort((a, b) => b.date - a.date)[0].reading;
+    }
+    return null;
+  }
+
+  function calcVol() {
+    const prev = getPrev();
+    if (prev !== null && meterForm.reading) {
+      const vol = parseInt(meterForm.reading) - prev;
+      return vol > 0 ? vol : 0;
+    }
+    return 0;
+  }
+
+  function addRec() {
+    if (!meterForm.cid || !meterForm.reading || !meterForm.month || !meterForm.date) {
+      showMsg('Semua field wajib diisi', 'error');
+      return;
+    }
+    const exists = records.find(r => r.cid === parseInt(meterForm.cid) && r.month === meterForm.month);
+    if (exists) {
+      showMsg('Sudah ada data untuk bulan ini', 'error');
+      return;
+    }
+    const prev = getPrev();
+    const reading = parseInt(meterForm.reading);
+    if (prev !== null && reading < prev) {
+      showMsg('Meteran akhir tidak boleh lebih kecil dari meteran awal', 'error');
+      return;
+    }
+    const cust = customers.find(c => c.id === parseInt(meterForm.cid));
+    setRecords([...records, {
+      id: Date.now(),
+      cid: parseInt(meterForm.cid),
+      name: cust.name,
+      month: meterForm.month,
+      date: parseInt(meterForm.date),
+      reading: reading,
+      prev: prev || 0,
+      vol: calcVol(),
+      by: user.n
+    }]);
+    setMeterForm({ cid: '', month: '', date: '', reading: '' });
+    showMsg('Pencatatan berhasil disimpan', 'success');
+  }
+
+  function editRecord(r) {
+    setEditRec(r);
+    setMeterForm({ cid: r.cid.toString(), month: r.month, date: r.date.toString(), reading: r.reading.toString() });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateRec() {
+    if (!meterForm.cid || !meterForm.reading || !meterForm.month || !meterForm.date) {
+      showMsg('Semua field wajib diisi', 'error');
+      return;
+    }
+    const prev = getPrev();
+    const reading = parseInt(meterForm.reading);
+    if (prev !== null && reading < prev) {
+      showMsg('Meteran akhir tidak boleh lebih kecil dari meteran awal', 'error');
+      return;
+    }
+    const cust = customers.find(c => c.id === parseInt(meterForm.cid));
+    setRecords(records.map(r => r.id === editRec.id ? {
+      ...r,
+      month: meterForm.month,
+      date: parseInt(meterForm.date),
+      reading: reading,
+      prev: prev || 0,
+      vol: calcVol(),
+      name: cust.name
+    } : r));
+    setMeterForm({ cid: '', month: '', date: '', reading: '' });
+    setEditRec(null);
+    showMsg('Data berhasil diupdate', 'success');
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+          <div className="text-center mb-8">
+            <Droplets className="w-16 h-16 mx-auto mb-4 text-green-600" />
+            <h1 className="text-2xl font-bold">MATRIKS NSP 2025</h1>
+            <p className="text-gray-600 mt-2">Pencatatan Meteran Air Tanah</p>
+            <p className="text-sm text-gray-500">Kabupaten Bantul</p>
+          </div>
+          {msg.txt && (
+            <div className={`p-3 rounded mb-4 text-sm ${msg.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              {msg.txt}
+            </div>
+          )}
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={loginForm.u}
+              onChange={e => setLoginForm({ ...loginForm, u: e.target.value })}
+              onKeyPress={e => e.key === 'Enter' && login()}
+              className="w-full px-4 py-3 border rounded-lg"
+              placeholder="Username"
+            />
+            <input
+              type="password"
+              value={loginForm.p}
+              onChange={e => setLoginForm({ ...loginForm, p: e.target.value })}
+              onKeyPress={e => e.key === 'Enter' && login()}
+              className="w-full px-4 py-3 border rounded-lg"
+              placeholder="Password"
+            />
+            <button onClick={login} className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700">
+              Masuk
+            </button>
+          </div>
+          <div className="mt-6 pt-6 border-t text-xs text-gray-600 text-center">
+            <p><strong>Demo:</strong> admin/admin123 atau petugas/petugas123</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {del.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Konfirmasi Hapus</h3>
+              <button onClick={() => setDel({ show: false, type: '', id: null, name: '' })}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="mb-6">Yakin hapus <strong>{del.name}</strong>?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDel({ show: false, type: '', id: null, name: '' })} className="flex-1 px-4 py-2 bg-gray-200 rounded-lg">
+                Batal
+              </button>
+              <button onClick={delItem} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg">
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-green-600 text-white shadow-lg">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-bold">MATRIKS NSP 2025</h1>
+            <p className="text-sm">Kab. Bantul</p>
+          </div>
+          <div className="text-right">
+            <p className="font-bold">{user.n}</p>
+            <button onClick={() => setUser(null)} className="mt-1 px-4 py-1 bg-green-700 rounded text-sm">
+              Keluar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex gap-2 mb-6 overflow-x-auto">
+          <button onClick={() => setTab('pengguna')} className={`px-6 py-3 rounded-lg font-medium flex items-center gap-2 whitespace-nowrap ${tab === 'pengguna' ? 'bg-green-600 text-white' : 'bg-white'}`}>
+            <Building2 className="w-5 h-5" />
+            Pengguna
+          </button>
+          <button onClick={() => setTab('input')} className={`px-6 py-3 rounded-lg font-medium flex items-center gap-2 whitespace-nowrap ${tab === 'input' ? 'bg-green-600 text-white' : 'bg-white'}`}>
+            <Plus className="w-5 h-5" />
+            Input
+          </button>
+          <button onClick={() => setTab('matrix')} className={`px-6 py-3 rounded-lg font-medium flex items-center gap-2 whitespace-nowrap ${tab === 'matrix' ? 'bg-green-600 text-white' : 'bg-white'}`}>
+            <FileText className="w-5 h-5" />
+            Matriks
+          </button>
+        </div>
+
+        {msg.txt && (
+          <div className={`p-4 rounded-lg mb-6 ${msg.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {msg.txt}
+          </div>
+        )}
+
+        {tab === 'pengguna' && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow p-6">
+              <h2 className="text-lg font-bold mb-4">Tambah Pengguna</h2>
+              <div className="space-y-3">
+                <input type="text" value={custForm.name} onChange={e => setCustForm({ ...custForm, name: e.target.value })} className="w-full px-3 py-2 border rounded" placeholder="Nama *" />
+                <input type="text" value={custForm.location} onChange={e => setCustForm({ ...custForm, location: e.target.value })} className="w-full px-3 py-2 border rounded" placeholder="Lokasi *" />
+                <input type="text" value={custForm.business} onChange={e => setCustForm({ ...custForm, business: e.target.value })} className="w-full px-3 py-2 border rounded" placeholder="Jenis Usaha" />
+                <button onClick={addCust} className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">
+                  Simpan
+                </button>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow p-6">
+              <h2 className="text-lg font-bold mb-4">Daftar ({customers.length})</h2>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {customers.length === 0 ? (
+                  <p className="text-center text-gray-400 py-8">Belum ada data</p>
+                ) : (
+                  customers.map(c => (
+                    <div key={c.id} className="border rounded p-3 flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-sm">{c.name}</p>
+                        <p className="text-xs text-gray-600">{c.location}</p>
+                      </div>
+                      <button onClick={() => setDel({ show: true, type: 'customer', id: c.id, name: c.name })} className="text-red-600 p-2">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                `;
-            } else {
-                app.innerHTML = `
-                    <div class="header">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                            <div>
-                                <h1 style="font-size: 24px;">🌊 MATRIKS NSP 2025</h1>
-                                <p style="font-size: 14px;">Pencatatan Volume Air Tanah - Kabupaten Bantul</p>
-                            </div>
-                            <div style="text-align: right;">
-                                <p style="font-weight: bold;">${currentUser.name}</p>
-                                <p style="font-size: 12px; opacity: 0.9;">${currentUser.role === 'kepala' ? 'Kepala Seksi' : 'Petugas'}</p>
-                                <button class="btn btn-danger" style="margin-top: 5px; padding: 8px 16px; font-size: 12px;" onclick="logout()">Keluar</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="container">
-                        <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-                            <button class="btn btn-primary" onclick="showTab('pengguna')">👥 Daftar Pengguna</button>
-                            <button class="btn btn-primary" onclick="showTab('input')">➕ Input Pencatatan</button>
-                            <button class="btn btn-primary" onclick="showTab('matrix')">📊 Matriks Tahunan</button>
-                        </div>
-                        <div id="tabContent"></div>
-                    </div>
-                `;
-                showTab('pengguna');
-            }
-        }
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
-        function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const user = users.find(u => u.username === username && u.password === password);
-            
-            if (user) {
-                currentUser = user;
-                render();
-            } else {
-                alert('Username atau password salah!');
-            }
-        }
-
-        function logout() {
-            currentUser = null;
-            render();
-        }
-
-        function showTab(tab) {
-            const content = document.getElementById('tabContent');
-            
-            if (tab === 'pengguna') {
-                content.innerHTML = `
-                    <div class="grid">
-                        <div class="card">
-                            <h2 style="margin-bottom: 15px;">Tambah Pengguna Baru</h2>
-                            <div class="form-group">
-                                <label>Nama Pengguna *</label>
-                                <input type="text" id="custName" placeholder="Nama lengkap">
-                            </div>
-                            <div class="form-group">
-                                <label>Lokasi *</label>
-                                <input type="text" id="custLocation" placeholder="Alamat lengkap">
-                            </div>
-                            <div class="form-group">
-                                <label>Jenis Usaha</label>
-                                <input type="text" id="custBusiness" placeholder="Hotel, Industri, dll">
-                            </div>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="addCustomer()">Simpan Data</button>
-                        </div>
-                        <div class="card">
-                            <h2 style="margin-bottom: 15px;">Daftar Pengguna (<span id="custCount">${customers.length}</span>)</h2>
-                            <div id="customerList" style="max-height: 500px; overflow-y: auto;"></div>
-                        </div>
+        {tab === 'input' && (
+          <div className="bg-white rounded-xl shadow p-6 max-w-2xl mx-auto">
+            <h2 className="text-lg font-bold mb-4">{editRec ? 'Edit' : 'Input'} Pencatatan</h2>
+            {editRec && (
+              <div className="bg-blue-50 border border-blue-300 rounded p-3 mb-4 text-sm flex justify-between">
+                <span>Mode Edit</span>
+                <button onClick={() => { setEditRec(null); setMeterForm({ cid: '', month: '', date: '', reading: '' }); }} className="text-blue-600">
+                  Batal
+                </button>
+              </div>
+            )}
+            <div className="space-y-4">
+              <select value={meterForm.cid} onChange={e => setMeterForm({ ...meterForm, cid: e.target.value })} className="w-full px-3 py-2 border rounded" disabled={editRec !== null}>
+                <option value="">Pilih Pengguna</option>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <div className="grid grid-cols-2 gap-4">
+                <select value={meterForm.month} onChange={e => setMeterForm({ ...meterForm, month: e.target.value })} className="w-full px-3 py-2 border rounded">
+                  <option value="">Bulan</option>
+                  {months.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <input type="number" value={meterForm.date} onChange={e => setMeterForm({ ...meterForm, date: e.target.value })} className="w-full px-3 py-2 border rounded" placeholder="Tanggal" min="1" max="31" />
+              </div>
+              {meterForm.cid && meterForm.month && (
+                <div className="bg-blue-50 border-2 border-blue-300 rounded p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-600">Meteran Awal</p>
+                      <p className="text-3xl font-bold text-blue-600">{getPrev() || 0}</p>
+                      <p className="text-xs">m³</p>
                     </div>
-                `;
-                renderCustomerList();
-            } else if (tab === 'input') {
-                content.innerHTML = `
-                    <div class="card" style="max-width: 700px; margin: 0 auto;">
-                        <h2 style="margin-bottom: 15px;">Input Pencatatan Meter Air</h2>
-                        <div class="form-group">
-                            <label>Pilih Pengguna *</label>
-                            <select id="recCustomer" onchange="updateInfo()">
-                                <option value="">-- Pilih Pengguna --</option>
-                                ${customers.map(c => `<option value="${c.id}">${c.name} - ${c.location}</option>`).join('')}
-                            </select>
+                    {meterForm.reading && (
+                      <div>
+                        <p className="text-xs text-gray-600">Volume</p>
+                        <p className="text-3xl font-bold text-green-600">{calcVol()}</p>
+                        <p className="text-xs">m³</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              <input type="number" value={meterForm.reading} onChange={e => setMeterForm({ ...meterForm, reading: e.target.value })} className="w-full px-3 py-2 border-2 rounded text-lg font-semibold" placeholder="Meteran Akhir (m³)" />
+              {editRec ? (
+                <button onClick={updateRec} className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700">
+                  Update
+                </button>
+              ) : (
+                <button onClick={addRec} className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700">
+                  Simpan
+                </button>
+              )}
+            </div>
+            {records.length > 0 && (
+              <div className="mt-8 pt-6 border-t">
+                <h3 className="font-bold mb-4">Terbaru</h3>
+                <div className="space-y-2">
+                  {records.slice(-5).reverse().map(r => (
+                    <div key={r.id} className="border rounded p-4 bg-gray-50">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-bold">{r.name}</p>
+                          <p className="text-sm text-gray-600">{r.month} - Tgl {r.date}</p>
+                          <p className="text-xs text-gray-500">Oleh: {r.by}</p>
                         </div>
-                        <div class="grid">
-                            <div class="form-group">
-                                <label>Bulan *</label>
-                                <select id="recMonth" onchange="updateInfo()">
-                                    <option value="">-- Pilih Bulan --</option>
-                                    ${months.map(m => `<option value="${m}">${m}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Tanggal *</label>
-                                <input type="number" id="recDate" min="1" max="31" placeholder="1-31">
-                            </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-green-600">{r.reading} m³</p>
                         </div>
-                        <div id="meterInfo"></div>
-                        <div class="form-group">
-                            <label>Meteran Akhir (m³) *</label>
-                            <input type="number" id="recMeter" oninput="updateInfo()" placeholder="Masukkan angka meteran">
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className="text-sm">Vol: <strong>{r.vol} m³</strong></span>
+                        <div className="flex gap-2">
+                          <button onClick={() => editRecord(r)} className="p-2 text-blue-600 hover:bg-blue-50 rounded">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setDel({ show: true, type: 'record', id: r.id, name: `${r.name} - ${r.month}` })} className="p-2 text-red-600 hover:bg-red-50 rounded">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="addRecord()">💾 Simpan Pencatatan</button>
-                        <div style="margin-top: 30px;">
-                            <h3 style="margin-bottom: 15px;">Pencatatan Terbaru</h3>
-                            <div id="recentRecords"></div>
-                        </div>
+                      </div>
                     </div>
-                `;
-                renderRecentRecords();
-            } else if (tab === 'matrix') {
-                content.innerHTML = `
-                    <div class="card">
-                        <h2 style="margin-bottom: 20px;">Matriks Pencatatan Volume Air Tanah Tahun 2025</h2>
-                        <div id="matrixContent"></div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'matrix' && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="text-lg font-bold mb-4">Matriks 2025</h2>
+            {customers.length === 0 ? (
+              <p className="text-center text-gray-400 py-12">Belum ada data</p>
+            ) : (
+              customers.map(c => {
+                const recs = records.filter(r => r.cid === c.id);
+                return (
+                  <div key={c.id} className="mb-8 border-2 border-green-600 rounded overflow-hidden">
+                    <div className="bg-green-600 text-white p-4">
+                      <h3 className="font-bold text-lg">{c.name}</h3>
+                      <p className="text-sm">{c.location} {c.business && `| ${c.business}`}</p>
                     </div>
-                `;
-                renderMatrix();
-            }
-        }
-
-        function addCustomer() {
-            const name = document.getElementById('custName').value.trim();
-            const location = document.getElementById('custLocation').value.trim();
-            const business = document.getElementById('custBusiness').value.trim();
-            
-            if (!name || !location) {
-                showAlert('Nama dan lokasi wajib diisi!', 'error');
-                return;
-            }
-            
-            customers.push({ 
-                id: Date.now(), 
-                name, 
-                location, 
-                business,
-                createdAt: new Date().toISOString()
-            });
-            saveData();
-            showAlert('Pengguna berhasil ditambahkan!', 'success');
-            showTab('pengguna');
-        }
-
-        function renderCustomerList() {
-            const list = document.getElementById('customerList');
-            const count = document.getElementById('custCount');
-            if (!list) return;
-            
-            if (count) count.textContent = customers.length;
-            
-            if (customers.length === 0) {
-                list.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Belum ada pengguna terdaftar</p>';
-            } else {
-                list.innerHTML = customers.map(c => `
-                    <div style="padding: 12px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; background: #fafafa;">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div style="flex: 1;">
-                                <strong style="color: #333;">${c.name}</strong><br>
-                                <small style="color: #666;">${c.location}</small>
-                                ${c.business ? `<br><small style="color: #999;">${c.business}</small>` : ''}
-                            </div>
-                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteCustomer(${c.id})">Hapus</button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-        }
-
-        function deleteCustomer(id) {
-            if (confirm('Yakin ingin menghapus pengguna ini? Data pencatatan juga akan terhapus.')) {
-                customers = customers.filter(c => c.id !== id);
-                records = records.filter(r => r
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-gray-200">
+                          <th className="border p-2" rowSpan="2">BULAN</th>
+                          <th className="border p-2" colSpan="3">PENCATATAN</th>
+                          <th className="border p-2" rowSpan="2">PETUGAS</th>
+                        </tr>
+                        <tr className="bg-gray-200">
+                          <th className="border p-2">TGL</th>
+                          <th className="border p-2">METER (m³)</th>
+                          <th className="border p-2">VOL (m³)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {months.map((m, i) => {
+                          const r = recs.find(x => x.month === m);
+                          return (
+                            <tr key={m} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="border p-2 font-semibold">{m}</td>
+                              <td className="border p-2 text-center">{r ? r.date : '-'}</td>
+                              <td className="border p-2 text-center font-bold text-blue-600">{r ? r.reading : '-'}</td>
+                              <td className="border p-2 text-center font-bold text-green-600">{r ? r.vol : '-'}</td>
+                              <td className="border p-2 text-center text-xs">{r ? r.by : '-'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
