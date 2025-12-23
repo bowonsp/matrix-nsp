@@ -15,6 +15,7 @@
         .btn { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.3s; font-size: 14px; }
         .btn-primary { background: #2e7d32; color: white; }
         .btn-primary:hover { background: #1b5e20; transform: translateY(-2px); }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; transform: none; }
         .btn-danger { background: #d32f2f; color: white; }
         .btn-danger:hover { background: #c62828; }
         .btn-secondary { background: #757575; color: white; }
@@ -32,6 +33,7 @@
         .alert { padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; }
         .alert-success { background: #c8e6c9; color: #1b5e20; }
         .alert-error { background: #ffcdd2; color: #b71c1c; }
+        .alert-info { background: #e3f2fd; color: #1565c0; }
         .info-box { background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px; padding: 15px; margin: 15px 0; }
         .info-value { font-size: 32px; font-weight: bold; color: #1565c0; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
@@ -44,6 +46,11 @@
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; padding: 20px; }
         .modal.active { display: flex; align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 30px; border-radius: 10px; max-width: 500px; width: 100%; }
+        .loading { display: inline-block; width: 16px; height: 16px; border: 3px solid #f3f3f3; border-top: 3px solid #2e7d32; border-radius: 50%; animation: spin 1s linear infinite; margin-left: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .sync-status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 6px; font-size: 12px; }
+        .sync-status.online { background: #c8e6c9; color: #1b5e20; }
+        .sync-status.offline { background: #ffecb3; color: #f57f17; }
         @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
         @media print { .header, .tabs, .btn, .record-actions { display: none; } }
     </style>
@@ -84,7 +91,11 @@
                     <p>Pencatatan Volume Air Tanah - Kabupaten Bantul</p>
                 </div>
                 <div style="text-align: right;">
-                    <p id="currentUserName" style="font-weight: bold;"></p>
+                    <div id="syncStatus" class="sync-status offline">
+                        <span>●</span>
+                        <span>Offline Mode</span>
+                    </div>
+                    <p id="currentUserName" style="font-weight: bold; margin-top: 5px;"></p>
                     <button class="btn btn-secondary btn-small" onclick="handleLogout()" style="margin-top: 5px;">Keluar</button>
                 </div>
             </div>
@@ -116,7 +127,7 @@
                             <label>Jenis Usaha</label>
                             <input type="text" id="custBusiness" placeholder="Hotel, Industri, dll">
                         </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="addCustomer()">Simpan Data</button>
+                        <button class="btn btn-primary" id="btnAddCustomer" style="width: 100%;" onclick="addCustomer()">Simpan Data</button>
                     </div>
 
                     <div class="card">
@@ -203,12 +214,18 @@
     </div>
 
     <script>
+        // ============================================
+        // KONFIGURASI - GANTI URL INI DENGAN URL ANDA
+        // ============================================
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwT-E_2N3ALQyI_7aqxa3yMAPMnDGln76tYPLg7L0AGXE4BFXlx1darSSES499wv3gD/exec';
+        
         // State Management
         let currentUser = null;
         let customers = [];
         let records = [];
         let editingRecord = null;
         let deleteTarget = { type: '', id: null };
+        let isOnline = false;
         
         const users = [
             { username: 'admin', password: 'admin123', name: 'NOOR SOTYO PRABOWO', role: 'kepala_seksi' },
@@ -218,21 +235,85 @@
         const months = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 
                         'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
 
-        // Load dari LocalStorage
-        function loadData() {
+        // ============================================
+        // GOOGLE SHEETS API FUNCTIONS
+        // ============================================
+        
+        async function syncFromGoogleSheets() {
+            try {
+                showAlert('Sinkronisasi data dari server...', 'info');
+                const response = await fetch(`${SCRIPT_URL}?action=getAllData`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    customers = data.customers || [];
+                    records = data.records || [];
+                    saveToLocalStorage();
+                    updateSyncStatus(true);
+                    showAlert('Data berhasil disinkronkan!', 'success');
+                    return true;
+                }
+                throw new Error('Gagal mendapatkan data');
+            } catch (error) {
+                console.error('Sync error:', error);
+                updateSyncStatus(false);
+                showAlert('Gagal sinkronisasi. Menggunakan data lokal.', 'error');
+                return false;
+            }
+        }
+
+        async function sendToGoogleSheets(action, data) {
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...data })
+                });
+                
+                // no-cors mode tidak bisa membaca response, tapi request terkirim
+                updateSyncStatus(true);
+                return true;
+            } catch (error) {
+                console.error('Send error:', error);
+                updateSyncStatus(false);
+                showAlert('Data tersimpan lokal. Akan disinkronkan otomatis.', 'info');
+                return false;
+            }
+        }
+
+        function updateSyncStatus(online) {
+            isOnline = online;
+            const statusEl = document.getElementById('syncStatus');
+            if (online) {
+                statusEl.className = 'sync-status online';
+                statusEl.innerHTML = '<span>●</span><span>Online</span>';
+            } else {
+                statusEl.className = 'sync-status offline';
+                statusEl.innerHTML = '<span>●</span><span>Offline Mode</span>';
+            }
+        }
+
+        // ============================================
+        // LOCAL STORAGE FUNCTIONS
+        // ============================================
+        
+        function loadFromLocalStorage() {
             const savedCustomers = localStorage.getItem('customers');
             const savedRecords = localStorage.getItem('records');
             if (savedCustomers) customers = JSON.parse(savedCustomers);
             if (savedRecords) records = JSON.parse(savedRecords);
         }
 
-        // Save ke LocalStorage
-        function saveData() {
+        function saveToLocalStorage() {
             localStorage.setItem('customers', JSON.stringify(customers));
             localStorage.setItem('records', JSON.stringify(records));
         }
 
-        // Show Alert
+        // ============================================
+        // UI FUNCTIONS
+        // ============================================
+        
         function showAlert(message, type) {
             const container = document.getElementById('alertContainer');
             const alert = document.createElement('div');
@@ -242,8 +323,22 @@
             setTimeout(() => alert.remove(), 3000);
         }
 
-        // Login
-        function handleLogin() {
+        function setButtonLoading(buttonId, loading) {
+            const btn = document.getElementById(buttonId);
+            if (loading) {
+                btn.disabled = true;
+                btn.innerHTML = btn.textContent + '<span class="loading"></span>';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = btn.textContent.replace(/<span class="loading"><\/span>/, '');
+            }
+        }
+
+        // ============================================
+        // LOGIN & AUTH
+        // ============================================
+        
+        async function handleLogin() {
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
             
@@ -254,7 +349,13 @@
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('mainApp').style.display = 'block';
                 document.getElementById('currentUserName').textContent = user.name;
-                loadData();
+                
+                // Load local data first
+                loadFromLocalStorage();
+                
+                // Try to sync with server
+                await syncFromGoogleSheets();
+                
                 showTab('pengguna');
             } else {
                 const loginAlert = document.getElementById('loginAlert');
@@ -263,7 +364,6 @@
             }
         }
 
-        // Logout
         function handleLogout() {
             currentUser = null;
             document.getElementById('loginScreen').style.display = 'block';
@@ -272,7 +372,10 @@
             document.getElementById('loginPassword').value = '';
         }
 
-        // Show Tab
+        // ============================================
+        // TAB NAVIGATION
+        // ============================================
+        
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -291,8 +394,11 @@
             }
         }
 
-        // Add Customer
-        function addCustomer() {
+        // ============================================
+        // CUSTOMER MANAGEMENT
+        // ============================================
+        
+        async function addCustomer() {
             const name = document.getElementById('custName').value.trim();
             const location = document.getElementById('custLocation').value.trim();
             const business = document.getElementById('custBusiness').value.trim();
@@ -302,15 +408,22 @@
                 return;
             }
             
-            customers.push({
+            setButtonLoading('btnAddCustomer', true);
+            
+            const newCustomer = {
                 id: Date.now(),
                 name,
                 location,
                 business,
                 createdAt: new Date().toISOString()
-            });
+            };
             
-            saveData();
+            customers.push(newCustomer);
+            saveToLocalStorage();
+            
+            // Try to send to server
+            await sendToGoogleSheets('addCustomer', { customer: newCustomer });
+            
             showAlert('Pengguna berhasil ditambahkan!', 'success');
             
             document.getElementById('custName').value = '';
@@ -319,9 +432,9 @@
             
             renderCustomerList();
             renderCustomerDropdown();
+            setButtonLoading('btnAddCustomer', false);
         }
 
-        // Render Customer List
         function renderCustomerList() {
             const list = document.getElementById('customerList');
             const count = document.getElementById('customerCount');
@@ -347,7 +460,6 @@
             `).join('');
         }
 
-        // Delete Customer
         function deleteCustomer(id) {
             const customer = customers.find(c => c.id === id);
             deleteTarget = { type: 'customer', id };
@@ -356,14 +468,16 @@
             document.getElementById('deleteModal').classList.add('active');
         }
 
-        // Render Customer Dropdown
         function renderCustomerDropdown() {
             const select = document.getElementById('inputCustomer');
             select.innerHTML = '<option value="">-- Pilih Pengguna --</option>' +
                 customers.map(c => `<option value="${c.id}">${c.name} - ${c.location}</option>`).join('');
         }
 
-        // Get Previous Meter Reading
+        // ============================================
+        // RECORD MANAGEMENT
+        // ============================================
+        
         function getPreviousMeterReading() {
             const custId = document.getElementById('inputCustomer').value;
             const month = document.getElementById('inputMonth').value;
@@ -382,7 +496,6 @@
             return null;
         }
 
-        // Calculate Volume
         function calculateVolume() {
             const prevReading = getPreviousMeterReading();
             const currentReading = document.getElementById('inputMeterReading').value;
@@ -394,7 +507,6 @@
             return 0;
         }
 
-        // Update Meter Info
         function updateMeterInfo() {
             const custId = document.getElementById('inputCustomer').value;
             const month = document.getElementById('inputMonth').value;
@@ -430,8 +542,7 @@
             `;
         }
 
-        // Save Record
-        function saveRecord() {
+        async function saveRecord() {
             const custId = document.getElementById('inputCustomer').value;
             const month = document.getElementById('inputMonth').value;
             const date = document.getElementById('inputDate').value;
@@ -442,8 +553,9 @@
                 return;
             }
             
+            setButtonLoading('btnSave', true);
+            
             if (editingRecord) {
-                // Update existing record
                 const idx = records.findIndex(r => r.id === editingRecord.id);
                 const customer = customers.find(c => c.id === parseInt(custId));
                 const prev = getPreviousMeterReading();
@@ -458,13 +570,14 @@
                     customerName: customer.name
                 };
                 
+                await sendToGoogleSheets('updateRecord', { record: records[idx] });
                 showAlert('Data pencatatan berhasil diupdate!', 'success');
                 cancelEdit();
             } else {
-                // Check duplicate
                 const exists = records.find(r => r.customerId === parseInt(custId) && r.month === month);
                 if (exists) {
                     showAlert(`Pencatatan untuk bulan ${month} sudah ada!`, 'error');
+                    setButtonLoading('btnSave', false);
                     return;
                 }
                 
@@ -473,12 +586,13 @@
                 
                 if (prev !== null && currentReading < prev) {
                     showAlert('Meteran akhir tidak boleh lebih kecil dari meteran awal!', 'error');
+                    setButtonLoading('btnSave', false);
                     return;
                 }
                 
                 const customer = customers.find(c => c.id === parseInt(custId));
                 
-                records.push({
+                const newRecord = {
                     id: Date.now(),
                     customerId: parseInt(custId),
                     customerName: customer.name,
@@ -489,14 +603,15 @@
                     volumeUsage: calculateVolume(),
                     recordedBy: currentUser.name,
                     recordedAt: new Date().toISOString()
-                });
+                };
                 
+                records.push(newRecord);
+                await sendToGoogleSheets('addRecord', { record: newRecord });
                 showAlert('Pencatatan berhasil disimpan!', 'success');
             }
             
-            saveData();
+            saveToLocalStorage();
             
-            // Clear form
             document.getElementById('inputCustomer').value = '';
             document.getElementById('inputMonth').value = '';
             document.getElementById('inputDate').value = '';
@@ -504,16 +619,15 @@
             document.getElementById('meterInfo').innerHTML = '';
             
             renderRecentRecords();
+            setButtonLoading('btnSave', false);
         }
 
-        // Edit Record
         function editRecord(id) {
             editingRecord = records.find(r => r.id === id);
             
             document.getElementById('inputTitle').textContent = '✏️ Edit Pencatatan Meter Air';
             document.getElementById('editMode').style.display = 'block';
             document.getElementById('btnSave').textContent = '💾 Update Pencatatan';
-            document.getElementById('btnSave').className = 'btn btn-primary';
             
             document.getElementById('inputCustomer').value = editingRecord.customerId;
             document.getElementById('inputCustomer').disabled = true;
@@ -525,14 +639,12 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Cancel Edit
         function cancelEdit() {
             editingRecord = null;
             
             document.getElementById('inputTitle').textContent = 'Input Pencatatan Meter Air';
             document.getElementById('editMode').style.display = 'none';
             document.getElementById('btnSave').textContent = '💾 Simpan Pencatatan';
-            document.getElementById('btnSave').className = 'btn btn-primary';
             
             document.getElementById('inputCustomer').disabled = false;
             document.getElementById('inputCustomer').value = '';
@@ -542,7 +654,6 @@
             document.getElementById('meterInfo').innerHTML = '';
         }
 
-        // Delete Record
         function deleteRecord(id) {
             const record = records.find(r => r.id === id);
             deleteTarget = { type: 'record', id };
@@ -551,30 +662,29 @@
             document.getElementById('deleteModal').classList.add('active');
         }
 
-        // Close Delete Modal
         function closeDeleteModal() {
             document.getElementById('deleteModal').classList.remove('active');
         }
 
-        // Confirm Delete
-        function confirmDelete() {
+        async function confirmDelete() {
             if (deleteTarget.type === 'customer') {
                 customers = customers.filter(c => c.id !== deleteTarget.id);
                 records = records.filter(r => r.customerId !== deleteTarget.id);
+                await sendToGoogleSheets('deleteCustomer', { id: deleteTarget.id });
                 showAlert('Pengguna berhasil dihapus!', 'success');
                 renderCustomerList();
                 renderCustomerDropdown();
             } else if (deleteTarget.type === 'record') {
                 records = records.filter(r => r.id !== deleteTarget.id);
+                await sendToGoogleSheets('deleteRecord', { id: deleteTarget.id });
                 showAlert('Pencatatan berhasil dihapus!', 'success');
                 renderRecentRecords();
             }
             
-            saveData();
+            saveToLocalStorage();
             closeDeleteModal();
         }
 
-        // Render Recent Records
         function renderRecentRecords() {
             const container = document.getElementById('recentRecords');
             
@@ -602,4 +712,102 @@
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #ddd;">
                             <div style="font-size: 14px;">
-                                <span style="color: #666;">
+                                <span style="color: #666;">Volume: </span>
+                                <strong style="color: #2e7d32;">${r.volumeUsage} m³</strong>
+                            </div>
+                            <div class="record-actions">
+                                <button class="btn btn-primary btn-small" onclick="editRecord(${r.id})">Edit</button>
+                                <button class="btn btn-danger btn-small" onclick="deleteRecord(${r.id})">Hapus</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        // ============================================
+        // MATRIX RENDERING
+        // ============================================
+        
+        function renderMatrix() {
+            const container = document.getElementById('matrixContainer');
+            
+            if (customers.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Belum ada data pengguna</p>';
+                return;
+            }
+            
+            let html = '<div style="overflow-x: auto;"><table>';
+            html += '<thead><tr>';
+            html += '<th style="min-width: 200px;">Nama Pengguna</th>';
+            html += '<th style="min-width: 150px;">Lokasi</th>';
+            
+            months.forEach(month => {
+                html += `<th style="min-width: 100px;">${month}</th>`;
+            });
+            
+            html += '<th style="min-width: 100px;">TOTAL</th>';
+            html += '</tr></thead><tbody>';
+            
+            let grandTotal = 0;
+            
+            customers.forEach(customer => {
+                html += '<tr>';
+                html += `<td style="text-align: left;"><strong>${customer.name}</strong></td>`;
+                html += `<td style="text-align: left;">${customer.location}</td>`;
+                
+                let customerTotal = 0;
+                
+                months.forEach(month => {
+                    const record = records.find(r => 
+                        r.customerId === customer.id && r.month === month
+                    );
+                    
+                    if (record) {
+                        html += `<td style="background: #e8f5e9;"><strong>${record.volumeUsage}</strong></td>`;
+                        customerTotal += record.volumeUsage;
+                    } else {
+                        html += '<td style="color: #ccc;">-</td>';
+                    }
+                });
+                
+                html += `<td style="background: #c8e6c9;"><strong>${customerTotal}</strong></td>`;
+                html += '</tr>';
+                
+                grandTotal += customerTotal;
+            });
+            
+            html += '<tr style="background: #2e7d32; color: white; font-weight: bold;">';
+            html += '<td colspan="2">TOTAL VOLUME (m³)</td>';
+            
+            months.forEach(month => {
+                const monthTotal = records
+                    .filter(r => r.month === month)
+                    .reduce((sum, r) => sum + r.volumeUsage, 0);
+                html += `<td>${monthTotal}</td>`;
+            });
+            
+            html += `<td>${grandTotal}</td>`;
+            html += '</tr>';
+            
+            html += '</tbody></table></div>';
+            
+            html += `
+                <div style="margin-top: 20px; text-align: center;">
+                    <button class="btn btn-primary" onclick="window.print()">🖨️ Cetak Matriks</button>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        
+        window.addEventListener('load', () => {
+            loadFromLocalStorage();
+        });
+    </script>
+</body>
+</html>
