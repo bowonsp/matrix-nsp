@@ -276,18 +276,51 @@
                 return;
             }
             
-            // Convert to base64
+            // Resize image to thumbnail (max 400px) to reduce size
             const reader = new FileReader();
             reader.onload = function(e) {
-                currentPhotoBase64 = e.target.result;
-                
-                // Show preview
-                previewDiv.innerHTML = `
-                    <div style="position: relative; display: inline-block;">
-                        <img src="${currentPhotoBase64}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
-                        <button onclick="removePhoto()" class="btn btn-danger btn-small" style="position: absolute; top: 5px; right: 5px;">✕</button>
-                    </div>
-                `;
+                const img = new Image();
+                img.onload = function() {
+                    // Create canvas for resizing
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // Calculate new dimensions (max 400px)
+                    const maxSize = 400;
+                    if (width > height && width > maxSize) {
+                        height = (height * maxSize) / width;
+                        width = maxSize;
+                    } else if (height > maxSize) {
+                        width = (width * maxSize) / height;
+                        height = maxSize;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to base64 with lower quality
+                    currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    
+                    console.log('Photo compressed:', {
+                        originalSize: file.size,
+                        compressedSize: currentPhotoBase64.length,
+                        dimensions: `${width}x${height}`
+                    });
+                    
+                    // Show preview
+                    previewDiv.innerHTML = `
+                        <div style="position: relative; display: inline-block;">
+                            <img src="${currentPhotoBase64}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
+                            <button onclick="removePhoto()" class="btn btn-danger btn-small" style="position: absolute; top: 5px; right: 5px;">✕</button>
+                        </div>
+                        <p style="font-size: 11px; color: #666; margin-top: 5px;">Ukuran: ${(currentPhotoBase64.length / 1024).toFixed(0)} KB</p>
+                    `;
+                };
+                img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
@@ -317,13 +350,6 @@
                 if (data.success) {
                     customers = data.customers || [];
                     records = data.records || [];
-                    
-                    // Map photoUrl to photo for compatibility
-                    records = records.map(r => ({
-                        ...r,
-                        photo: r.photoUrl || r.photo
-                    }));
-                    
                     saveToLocalStorage();
                     updateSyncStatus(true);
                     showAlert('Data berhasil disinkronkan!', 'success');
@@ -665,14 +691,6 @@
                 const result = await sendToGoogleSheets('updateRecord', { record: records[idx] });
                 console.log('Update result:', result);
                 
-                // Update photoUrl if returned from server
-                if (result && result.photoUrl) {
-                    console.log('Photo uploaded! URL:', result.photoUrl);
-                    records[idx].photo = result.photoUrl;
-                } else {
-                    console.log('No photoUrl returned from server');
-                }
-                
                 showAlert('Data pencatatan berhasil diupdate!', 'success');
                 cancelEdit();
             } else {
@@ -715,13 +733,8 @@
                 const result = await sendToGoogleSheets('addRecord', { record: newRecord });
                 console.log('Add result:', result);
                 
-                // Update photoUrl if returned from server
-                if (result && result.photoUrl) {
-                    console.log('Photo uploaded! URL:', result.photoUrl);
-                    newRecord.photo = result.photoUrl;
-                    records[records.length - 1].photo = result.photoUrl;
-                } else {
-                    console.log('No photoUrl returned from server');
+                if (result && result.photoSaved) {
+                    console.log('Photo saved successfully!');
                 }
                 
                 showAlert('Pencatatan berhasil disimpan!', 'success');
