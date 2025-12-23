@@ -185,6 +185,13 @@
                         <input type="number" id="inputMeterReading" oninput="updateMeterInfo()" placeholder="Masukkan angka meteran" style="font-size: 18px; font-weight: bold;">
                     </div>
 
+                    <div class="form-group">
+                        <label>Foto Meteran (Opsional)</label>
+                        <input type="file" id="inputPhoto" accept="image/*" capture="environment" onchange="handlePhotoUpload()" style="padding: 8px;">
+                        <small style="color: #666; font-size: 12px;">Format: JPG, PNG (Max 2MB)</small>
+                        <div id="photoPreview" style="margin-top: 10px;"></div>
+                    </div>
+
                     <button id="btnSave" class="btn btn-primary" style="width: 100%;" onclick="saveRecord()">💾 Simpan Pencatatan</button>
 
                     <div id="recentRecords" style="margin-top: 30px;"></div>
@@ -226,6 +233,7 @@
         let editingRecord = null;
         let deleteTarget = { type: '', id: null };
         let isOnline = false;
+        let currentPhotoBase64 = null;
         
         const users = [
             { username: 'admin', password: 'admin123', name: 'NOOR SOTYO PRABOWO', role: 'kepala_seksi' },
@@ -234,6 +242,61 @@
 
         const months = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 
                         'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+
+        // ============================================
+        // PHOTO UPLOAD HANDLING
+        // ============================================
+        
+        function handlePhotoUpload() {
+            const fileInput = document.getElementById('inputPhoto');
+            const file = fileInput.files[0];
+            const previewDiv = document.getElementById('photoPreview');
+            
+            if (!file) {
+                currentPhotoBase64 = null;
+                previewDiv.innerHTML = '';
+                return;
+            }
+            
+            // Validasi ukuran file (max 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                showAlert('Ukuran foto terlalu besar! Maksimal 2MB', 'error');
+                fileInput.value = '';
+                currentPhotoBase64 = null;
+                previewDiv.innerHTML = '';
+                return;
+            }
+            
+            // Validasi tipe file
+            if (!file.type.startsWith('image/')) {
+                showAlert('File harus berupa gambar!', 'error');
+                fileInput.value = '';
+                currentPhotoBase64 = null;
+                previewDiv.innerHTML = '';
+                return;
+            }
+            
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentPhotoBase64 = e.target.result;
+                
+                // Show preview
+                previewDiv.innerHTML = `
+                    <div style="position: relative; display: inline-block;">
+                        <img src="${currentPhotoBase64}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
+                        <button onclick="removePhoto()" class="btn btn-danger btn-small" style="position: absolute; top: 5px; right: 5px;">✕</button>
+                    </div>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function removePhoto() {
+            currentPhotoBase64 = null;
+            document.getElementById('inputPhoto').value = '';
+            document.getElementById('photoPreview').innerHTML = '';
+        }
 
         // ============================================
         // GOOGLE SHEETS API FUNCTIONS
@@ -580,7 +643,8 @@
                     meterReading: parseInt(reading),
                     previousReading: prev || 0,
                     volumeUsage: calculateVolume(),
-                    customerName: customer.name
+                    customerName: customer.name,
+                    photo: currentPhotoBase64 || editingRecord.photo || null
                 };
                 
                 await sendToGoogleSheets('updateRecord', { record: records[idx] });
@@ -615,7 +679,8 @@
                     previousReading: prev || 0,
                     volumeUsage: calculateVolume(),
                     recordedBy: currentUser.name,
-                    recordedAt: new Date().toISOString()
+                    recordedAt: new Date().toISOString(),
+                    photo: currentPhotoBase64 || null
                 };
                 
                 records.push(newRecord);
@@ -630,6 +695,7 @@
             document.getElementById('inputDate').value = '';
             document.getElementById('inputMeterReading').value = '';
             document.getElementById('meterInfo').innerHTML = '';
+            removePhoto();
             
             renderRecentRecords();
             setButtonLoading('btnSave', false);
@@ -648,6 +714,17 @@
             document.getElementById('inputDate').value = editingRecord.date;
             document.getElementById('inputMeterReading').value = editingRecord.meterReading;
             
+            // Load photo if exists
+            if (editingRecord.photo) {
+                currentPhotoBase64 = editingRecord.photo;
+                document.getElementById('photoPreview').innerHTML = `
+                    <div style="position: relative; display: inline-block;">
+                        <img src="${editingRecord.photo}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
+                        <button onclick="removePhoto()" class="btn btn-danger btn-small" style="position: absolute; top: 5px; right: 5px;">✕</button>
+                    </div>
+                `;
+            }
+            
             updateMeterInfo();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -665,6 +742,7 @@
             document.getElementById('inputDate').value = '';
             document.getElementById('inputMeterReading').value = '';
             document.getElementById('meterInfo').innerHTML = '';
+            removePhoto();
         }
 
         function deleteRecord(id) {
