@@ -243,7 +243,13 @@
             try {
                 showAlert('Sinkronisasi data dari server...', 'info');
                 const response = await fetch(`${SCRIPT_URL}?action=getAllData`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
+                console.log('Sync response:', data);
                 
                 if (data.success) {
                     customers = data.customers || [];
@@ -253,7 +259,7 @@
                     showAlert('Data berhasil disinkronkan!', 'success');
                     return true;
                 }
-                throw new Error('Gagal mendapatkan data');
+                throw new Error(data.error || 'Gagal mendapatkan data');
             } catch (error) {
                 console.error('Sync error:', error);
                 updateSyncStatus(false);
@@ -266,14 +272,21 @@
             try {
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
                     body: JSON.stringify({ action, ...data })
                 });
                 
-                // no-cors mode tidak bisa membaca response, tapi request terkirim
-                updateSyncStatus(true);
-                return true;
+                const result = await response.json();
+                console.log('Send response:', result);
+                
+                if (result.success) {
+                    updateSyncStatus(true);
+                    return true;
+                }
+                
+                throw new Error(result.error || 'Gagal mengirim data');
             } catch (error) {
                 console.error('Send error:', error);
                 updateSyncStatus(false);
