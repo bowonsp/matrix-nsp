@@ -638,6 +638,13 @@
             
             setButtonLoading('btnSave', true);
             
+            console.log('=== SAVE RECORD START ===');
+            console.log('Photo data exists:', !!currentPhotoBase64);
+            if (currentPhotoBase64) {
+                console.log('Photo data length:', currentPhotoBase64.length);
+                console.log('Photo data preview:', currentPhotoBase64.substring(0, 50) + '...');
+            }
+            
             if (editingRecord) {
                 const idx = records.findIndex(r => r.id === editingRecord.id);
                 const customer = customers.find(c => c.id === parseInt(custId));
@@ -654,11 +661,16 @@
                     photo: currentPhotoBase64 || editingRecord.photo || null
                 };
                 
+                console.log('Sending update to server...');
                 const result = await sendToGoogleSheets('updateRecord', { record: records[idx] });
+                console.log('Update result:', result);
                 
                 // Update photoUrl if returned from server
                 if (result && result.photoUrl) {
+                    console.log('Photo uploaded! URL:', result.photoUrl);
                     records[idx].photo = result.photoUrl;
+                } else {
+                    console.log('No photoUrl returned from server');
                 }
                 
                 showAlert('Data pencatatan berhasil diupdate!', 'success');
@@ -696,17 +708,26 @@
                     photo: currentPhotoBase64 || null
                 };
                 
+                console.log('Sending new record to server...');
+                console.log('Record data:', { ...newRecord, photo: newRecord.photo ? 'BASE64_DATA' : null });
+                
                 records.push(newRecord);
                 const result = await sendToGoogleSheets('addRecord', { record: newRecord });
+                console.log('Add result:', result);
                 
                 // Update photoUrl if returned from server
                 if (result && result.photoUrl) {
+                    console.log('Photo uploaded! URL:', result.photoUrl);
                     newRecord.photo = result.photoUrl;
                     records[records.length - 1].photo = result.photoUrl;
+                } else {
+                    console.log('No photoUrl returned from server');
                 }
                 
                 showAlert('Pencatatan berhasil disimpan!', 'success');
             }
+            
+            console.log('=== SAVE RECORD END ===');
             
             saveToLocalStorage();
             
