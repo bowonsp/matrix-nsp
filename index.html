@@ -303,13 +303,20 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // Convert to base64 with lower quality
-                    currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    // Convert to base64 with VERY low quality for smaller size
+                    currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.5);
+                    
+                    // Check size - if still too large, compress more
+                    if (currentPhotoBase64.length > 30000) {
+                        console.warn('Photo still too large, compressing more...');
+                        currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.3);
+                    }
                     
                     console.log('Photo compressed:', {
                         originalSize: file.size,
                         compressedSize: currentPhotoBase64.length,
-                        dimensions: `${width}x${height}`
+                        dimensions: `${width}x${height}`,
+                        sizeKB: (currentPhotoBase64.length / 1024).toFixed(1) + ' KB'
                     });
                     
                     // Show preview
@@ -318,7 +325,10 @@
                             <img src="${currentPhotoBase64}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #ddd;">
                             <button onclick="removePhoto()" class="btn btn-danger btn-small" style="position: absolute; top: 5px; right: 5px;">✕</button>
                         </div>
-                        <p style="font-size: 11px; color: #666; margin-top: 5px;">Ukuran: ${(currentPhotoBase64.length / 1024).toFixed(0)} KB</p>
+                        <p style="font-size: 11px; color: ${currentPhotoBase64.length > 50000 ? 'red' : '#666'}; margin-top: 5px;">
+                            Ukuran: ${(currentPhotoBase64.length / 1024).toFixed(1)} KB
+                            ${currentPhotoBase64.length > 50000 ? ' ⚠️ Terlalu besar!' : ' ✓'}
+                        </p>
                     `;
                 };
                 img.src = e.target.result;
@@ -444,7 +454,23 @@
                 }
                 
                 const data = await response.json();
-                console.log('Sync response:', data);
+                console.log('=== SYNC DATA FROM SERVER ===');
+                console.log('Customers:', data.customers?.length || 0);
+                console.log('Records:', data.records?.length || 0);
+                
+                if (data.records && data.records.length > 0) {
+                    console.log('Sample record with photo check:');
+                    data.records.forEach((r, i) => {
+                        if (i < 3) { // Log first 3 records
+                            console.log(`Record ${i+1}:`, {
+                                id: r.id,
+                                name: r.customerName,
+                                hasPhoto: !!r.photo,
+                                photoLength: r.photo ? r.photo.length : 0
+                            });
+                        }
+                    });
+                }
                 
                 if (data.success) {
                     customers = data.customers || [];
@@ -452,6 +478,7 @@
                     saveToLocalStorage();
                     updateSyncStatus(true);
                     showAlert('Data berhasil disinkronkan!', 'success');
+                    console.log('=== SYNC COMPLETED ===');
                     return true;
                 }
                 throw new Error(data.error || 'Gagal mendapatkan data');
@@ -813,10 +840,20 @@
                 };
                 
                 console.log('Sending update to server...');
+                console.log('Record to update:', {
+                    ...records[idx],
+                    photo: records[idx].photo ? `BASE64[${records[idx].photo.length}]` : null
+                });
+                
                 const result = await sendToGoogleSheets('updateRecord', { record: records[idx] });
                 console.log('Update result:', result);
                 
-                showAlert('Data pencatatan berhasil diupdate!', 'success');
+                if (result && result.success) {
+                    showAlert('Data pencatatan berhasil diupdate!', 'success');
+                } else {
+                    showAlert('Data tersimpan lokal, tapi gagal sync ke server!', 'error');
+                }
+                
                 cancelEdit();
             } else {
                 const exists = records.find(r => r.customerId === parseInt(custId) && r.month === month);
@@ -852,17 +889,29 @@
                 };
                 
                 console.log('Sending new record to server...');
-                console.log('Record data:', { ...newRecord, photo: newRecord.photo ? 'BASE64_DATA' : null });
+                console.log('Record data:', { 
+                    ...newRecord, 
+                    photo: newRecord.photo ? `BASE64[${newRecord.photo.length} chars]` : null 
+                });
                 
                 records.push(newRecord);
+                
                 const result = await sendToGoogleSheets('addRecord', { record: newRecord });
                 console.log('Add result:', result);
                 
-                if (result && result.photoSaved) {
-                    console.log('Photo saved successfully!');
+                if (result && result.success) {
+                    if (result.photoSaved) {
+                        console.log('✅ Photo saved to Google Sheets!');
+                        showAlert('Pencatatan berhasil disimpan (dengan foto)!', 'success');
+                    } else if (newRecord.photo) {
+                        console.log('⚠️ Record saved but photo not saved to server');
+                        showAlert('Pencatatan tersimpan, tapi foto hanya di lokal!', 'error');
+                    } else {
+                        showAlert('Pencatatan berhasil disimpan!', 'success');
+                    }
+                } else {
+                    showAlert('Data tersimpan lokal, gagal sync ke server!', 'error');
                 }
-                
-                showAlert('Pencatatan berhasil disimpan!', 'success');
             }
             
             console.log('=== SAVE RECORD END ===');
