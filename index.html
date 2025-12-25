@@ -106,6 +106,7 @@
                 <button class="tab active" onclick="showTab('pengguna')">👥 Daftar Pengguna</button>
                 <button class="tab" onclick="showTab('input')">➕ Input Pencatatan</button>
                 <button class="tab" onclick="showTab('matrix')">📊 Matriks Tahunan</button>
+                <button class="tab" onclick="testConnection()" style="background: #ff9800; color: white;">🔧 Test Koneksi</button>
             </div>
 
             <div id="alertContainer"></div>
@@ -332,6 +333,104 @@
         }
 
         // ============================================
+        // TEST CONNECTION
+        // ============================================
+        
+        async function testConnection() {
+            console.clear();
+            console.log('=================================');
+            console.log('TESTING CONNECTION TO GOOGLE SHEETS');
+            console.log('=================================');
+            console.log('Script URL:', SCRIPT_URL);
+            console.log('');
+            
+            showAlert('Testing koneksi... Lihat Console (F12)', 'info');
+            
+            // Test 1: GET request
+            console.log('TEST 1: GET Request (getAllData)');
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getAllData`);
+                console.log('Status:', response.status);
+                console.log('OK:', response.ok);
+                
+                const data = await response.json();
+                console.log('Response:', data);
+                console.log('✅ GET Request Success!');
+                console.log('');
+            } catch (error) {
+                console.error('❌ GET Request Failed:', error);
+                console.log('');
+            }
+            
+            // Test 2: POST request with dummy data
+            console.log('TEST 2: POST Request (Test Record with Photo)');
+            try {
+                const testPhoto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+                
+                const testRecord = {
+                    id: 999999999,
+                    customerId: 0,
+                    customerName: 'TEST',
+                    month: 'JANUARI',
+                    date: 1,
+                    meterReading: 100,
+                    previousReading: 0,
+                    volumeUsage: 100,
+                    recordedBy: 'TEST',
+                    recordedAt: new Date().toISOString(),
+                    photo: testPhoto
+                };
+                
+                console.log('Test record photo length:', testPhoto.length);
+                
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify({ 
+                        action: 'addRecord', 
+                        record: testRecord 
+                    })
+                });
+                
+                console.log('Status:', response.status);
+                console.log('OK:', response.ok);
+                
+                const result = await response.json();
+                console.log('Response:', result);
+                
+                if (result.success) {
+                    console.log('✅ POST Request Success!');
+                    console.log('Photo saved:', result.photoSaved);
+                    
+                    // Clean up test record
+                    await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ 
+                            action: 'deleteRecord', 
+                            id: 999999999 
+                        })
+                    });
+                    console.log('Test record cleaned up');
+                } else {
+                    console.error('❌ POST Request Failed:', result.error);
+                }
+                console.log('');
+            } catch (error) {
+                console.error('❌ POST Request Failed:', error);
+                console.log('');
+            }
+            
+            console.log('=================================');
+            console.log('TEST COMPLETED - Check results above');
+            console.log('=================================');
+            
+            showAlert('Test selesai! Lihat hasil di Console (F12)', 'success');
+        }
+
+        // ============================================
         // GOOGLE SHEETS API FUNCTIONS
         // ============================================
         
@@ -366,27 +465,53 @@
 
         async function sendToGoogleSheets(action, data) {
             try {
+                console.log('=== SENDING TO GOOGLE SHEETS ===');
+                console.log('Action:', action);
+                console.log('URL:', SCRIPT_URL);
+                
+                // Check if photo data exists
+                if (data.record && data.record.photo) {
+                    console.log('Photo exists in record');
+                    console.log('Photo length:', data.record.photo.length);
+                    console.log('Photo starts with:', data.record.photo.substring(0, 30));
+                } else {
+                    console.log('No photo in record');
+                }
+                
+                const payload = JSON.stringify({ action, ...data });
+                console.log('Payload size:', payload.length, 'characters');
+                
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'text/plain;charset=utf-8'
                     },
-                    body: JSON.stringify({ action, ...data })
+                    body: payload
                 });
                 
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const result = await response.json();
-                console.log('Send response:', result);
+                console.log('Server response:', result);
+                console.log('=== END SENDING ===');
                 
                 if (result.success) {
                     updateSyncStatus(true);
-                    return result; // Return full result including photoUrl
+                    return result;
                 }
                 
                 throw new Error(result.error || 'Gagal mengirim data');
             } catch (error) {
-                console.error('Send error:', error);
+                console.error('=== SEND ERROR ===');
+                console.error('Error:', error);
+                console.error('===================');
                 updateSyncStatus(false);
-                showAlert('Data tersimpan lokal. Akan disinkronkan otomatis.', 'info');
+                showAlert('Gagal kirim ke server. Cek console (F12).', 'error');
                 return null;
             }
         }
